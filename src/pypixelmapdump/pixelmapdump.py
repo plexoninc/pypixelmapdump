@@ -108,3 +108,44 @@ def _get_channel_out_of_tune_durations(pl2_file_path:str|Path):
     pl2.close()
 
     return channel_out_of_tune_durations
+
+def get_bad_channels(pl2_file_path:str|Path, limit:float, mode:str="absolute"):
+    """
+    Returns list of bad channels in .pl2 file.
+
+    Args:
+        pl2_file_path - path to .pl2 file from which to extract data
+        limit - threshold value for determining bad channels
+        mode - "absolute" or "relative" (defaults to "absolute")
+             - for "absolute", limit specifies the number of seconds a channel 
+               can be out of tune before it is deemed "bad."
+             - for "relative", limit specifies the fraction (NOT PERCENTAGE) 
+               of time a channel can be out of tune before it is deemed "bad" 
+               (must be between 0.0 and 1.0).
+
+    Outputs:
+        bad_channels - list of bad channels
+    """
+
+    if mode not in ("absolute", "relative"):
+        raise("Invalid mode specified.")
+
+    pl2 = PL2FileReader(pl2_file_path)
+    file_info = pl2.get_file_info()
+    recording_duration = file_info.duration_of_recording / file_info.timestamp_frequency
+    oot_durations_dict = _get_channel_out_of_tune_durations(pl2_file_path)
+    
+    bad_channels = []
+    for channel, oot_dur in oot_durations_dict.items():
+        if mode=="absolute":
+            if oot_dur >= limit:
+                bad_channels.append(channel)
+
+        elif mode=="relative":
+            oot_fractional = oot_dur / recording_duration
+            if (oot_fractional) >= limit:
+                bad_channels.append(channel)
+
+    pl2.close()
+
+    return bad_channels
